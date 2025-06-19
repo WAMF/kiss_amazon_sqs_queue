@@ -119,32 +119,26 @@ final orderQueue = await factory.createQueue<Order>(
 
 ## Testing
 
-This implementation has been tested against the official kiss_queue test suite in multiple ways:
-
-### Mock Testing (No External Dependencies)
-```bash
-dart test test/sqs_implementation_tester.dart
-```
+This implementation has been tested against the official kiss_queue test suite using LocalStack:
 
 ### LocalStack Testing (Real SQS API)
 ```bash
-# Start LocalStack
-make localstack-up
+# Run tests with automatic LocalStack management
+./runTests.sh
 
-# Run tests against LocalStack
-make test-local
-
-# Stop LocalStack  
-make localstack-down
+# Or run tests manually
+./runTests.sh manual
+dart test test/local_sqs_test.dart
+./runTests.sh stop
 ```
 
 ### All Tests
 ```bash
 # Run all tests (automatically manages LocalStack)
-make test-all
+./runTests.sh
 ```
 
-**Results**: 22/26 tests passing (85% compatibility)
+**Results**: 21/22 tests passing (95% compatibility)
 
 ### Passing Tests
 - ✅ Basic enqueue/dequeue operations
@@ -198,15 +192,14 @@ For local testing with real SQS API:
 
 ```bash
 # Install dependencies
-make deps
+dart pub get
 
 # Run all tests (includes LocalStack setup)
-make test-all
+./runTests.sh
 
 # Or run specific test types
-make test       # Unit tests only
-make test-mock  # Mock SQS tests  
-make test-local # LocalStack tests (requires LocalStack running)
+dart test                # Unit tests only
+./runTests.sh manual     # Start LocalStack for manual testing
 ```
 
 ### Manual Testing
@@ -218,13 +211,13 @@ dart pub get
 # Run basic tests
 dart test
 
-# Run implementation tester with mocks
-dart test test/sqs_implementation_tester.dart
+# Start LocalStack and run real SQS tests automatically
+./runTests.sh
 
-# Start LocalStack and run real SQS tests
-make localstack-up
+# Or manage LocalStack manually
+./runTests.sh manual
 dart test test/local_sqs_test.dart
-make localstack-down
+./runTests.sh stop
 
 # Run with coverage
 dart test --coverage=coverage
