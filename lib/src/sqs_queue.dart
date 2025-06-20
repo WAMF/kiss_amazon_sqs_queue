@@ -57,24 +57,11 @@ class SqsQueue<T, S> implements Queue<T, S> {
           );
         }
       }
-
-      // Create the complete message structure and serialize to JSON string for SQS
-      final messageBody = jsonEncode({
-        'id': message.id,
-        'payload': {'value': serializedPayload},
-        'createdAt': message.createdAt.toIso8601String(),
-        'processedAt': message.processedAt?.toIso8601String(),
-        'acknowledgedAt': message.acknowledgedAt?.toIso8601String(),
-      });
-
+      final messageBody = jsonEncode(serializedPayload);
       await _sqs.sendMessage(
         queueUrl: _queueUrl,
         messageBody: messageBody,
         messageAttributes: {
-          'MessageId': MessageAttributeValue(
-            stringValue: message.id,
-            dataType: 'String',
-          ),
           'CreatedAt': MessageAttributeValue(
             stringValue: message.createdAt.toIso8601String(),
             dataType: 'String',
@@ -88,7 +75,7 @@ class SqsQueue<T, S> implements Queue<T, S> {
 
   @override
   Future<void> enqueuePayload(T payload) async {
-    await enqueue(QueueMessage.create(payload, idGenerator: idGenerator));
+    await enqueue(QueueMessage.create(payload));
   }
 
   @override
@@ -120,46 +107,52 @@ class SqsQueue<T, S> implements Queue<T, S> {
       T payload;
       if (_serializer != null) {
         // Use the serializer to deserialize the payload
-        final payloadData = messageData['payload'] as Map<String, dynamic>?;
+        final payloadData = messageData as S?;
         if (payloadData == null) {
           throw ArgumentError('No payload data found in message');
         }
-        final payloadValue = payloadData['value'] as S?;
-        if (payloadValue == null) {
-          throw ArgumentError('Payload value is not of type $S or null');
-        }
-        payload = _serializer.deserialize(payloadValue);
+
+        payload = _serializer.deserialize(payloadData);
       } else {
         // Extract the value from the wrapped format
-        final payloadData = messageData['payload'] as Map<String, dynamic>?;
+        final payloadData = messageData as S?;
         if (payloadData == null) {
           throw ArgumentError('No payload data found in message');
         }
-        final payloadValue = payloadData['value'] as S?;
-        if (payloadValue is T) {
-          payload = payloadValue;
-        } else {
-          throw ArgumentError(
-            'Cannot deserialize payload value of type ${payloadValue.runtimeType} to type $T. Please provide a MessageSerializer.',
-          );
-        }
+        payload = payloadData as T;
       }
+      final id = sqsMessage.messageId!;
 
       final message = QueueMessage<T>(
-        id: messageData['id'],
+        id: id,
         payload: payload,
-        createdAt: DateTime.parse(messageData['createdAt']),
-        processedAt: messageData['processedAt'] != null
-            ? DateTime.parse(messageData['processedAt'])
+        createdAt:
+            sqsMessage.attributes?[MessageSystemAttributeName.sentTimestamp] !=
+                null
+            ? DateTime.fromMillisecondsSinceEpoch(
+                int.parse(
+                  sqsMessage.attributes![MessageSystemAttributeName
+                      .sentTimestamp]!,
+                ),
+              )
             : DateTime.now(),
-        acknowledgedAt: messageData['acknowledgedAt'] != null
-            ? DateTime.parse(messageData['acknowledgedAt'])
+        processedAt:
+            sqsMessage.attributes?[MessageSystemAttributeName
+                    .approximateFirstReceiveTimestamp] !=
+                null
+            ? DateTime.fromMillisecondsSinceEpoch(
+                int.parse(
+                  sqsMessage.attributes![MessageSystemAttributeName
+                      .approximateFirstReceiveTimestamp]!,
+                ),
+              )
             : null,
+        acknowledgedAt: null, // Set when acknowledge() is called
       );
 
       // Store the receipt handle for acknowledgment/rejection
-      _receiptHandles[message.id] = sqsMessage.receiptHandle!;
-      _inFlightMessages[message.id] = message;
+      _receiptHandles[id] = sqsMessage.receiptHandle!;
+      _inFlightMessages[id] = message;
 
       // Get receive count from SQS system attributes
       final receiveCountStr = sqsMessage
@@ -167,7 +160,7 @@ class SqsQueue<T, S> implements Queue<T, S> {
       final receiveCount = receiveCountStr != null
           ? int.tryParse(receiveCountStr) ?? 1
           : 1;
-      _messageReceiveCounts[message.id] = receiveCount;
+      _messageReceiveCounts[id] = receiveCount;
 
       return message;
     } catch (e) {
@@ -215,7 +208,7 @@ class SqsQueue<T, S> implements Queue<T, S> {
 
       // Increment receive count for our tracking since SQS doesn't track rejections properly
       final newReceiveCount = receiveCount + 1;
-      _messageReceiveCounts[message.id] = newReceiveCount;
+      _messageReceiveCounts[messageId] = newReceiveCount;
 
       if (requeue && newReceiveCount < _configuration.maxReceiveCount) {
         // Change visibility timeout to make message immediately available

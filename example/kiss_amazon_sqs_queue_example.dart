@@ -51,7 +51,7 @@ void main() async {
         await Future.delayed(Duration(milliseconds: 100));
 
         // Acknowledge successful processing
-        await queue.acknowledge(message.id);
+        await queue.acknowledge(message.id!);
         print('Message acknowledged\n');
       }
     }
@@ -72,7 +72,7 @@ void main() async {
     if (problematicMessage != null) {
       print('Processing failed for: ${problematicMessage.payload}');
       // Reject with requeue
-      await mainQueue.reject(problematicMessage.id, requeue: true);
+      await mainQueue.reject(problematicMessage.id!, requeue: true);
     }
 
     // Try processing again (second failure)
@@ -80,14 +80,14 @@ void main() async {
     if (retryMessage != null) {
       print('Retry processing failed for: ${retryMessage.payload}');
       // Reject again - this should send to DLQ since maxReceiveCount is 2
-      await mainQueue.reject(retryMessage.id, requeue: true);
+      await mainQueue.reject(retryMessage.id!, requeue: true);
     }
 
     // Check dead letter queue
     final dlqMessage = await dlqQueue.dequeue();
     if (dlqMessage != null) {
       print('Message moved to DLQ: ${dlqMessage.payload}');
-      await dlqQueue.acknowledge(dlqMessage.id);
+      await dlqQueue.acknowledge(dlqMessage.id!);
     }
 
     final orderSerializer = OrderSerializer();
@@ -107,7 +107,7 @@ void main() async {
     final orderMessage = await orderQueue.dequeue();
     if (orderMessage != null) {
       print('Received order: ${orderMessage.payload}');
-      await orderQueue.acknowledge(orderMessage.id);
+      await orderQueue.acknowledge(orderMessage.id!);
     }
 
     print('\nExample completed successfully!');
