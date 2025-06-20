@@ -30,8 +30,7 @@ Add this package to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  kiss_amazon_sqs_queue: ^1.0.0
-  aws_sqs_api: ^2.0.0  # Peer dependency
+  kiss_amazon_sqs_queue: ^0.0.1
 ```
 
 ## Quick Start
