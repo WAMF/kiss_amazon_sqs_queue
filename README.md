@@ -22,7 +22,7 @@ This package provides an Amazon SQS backend implementation for the [kiss_queue](
 - ✅ **Dead Letter Queue Support**: Automatic poison message handling
 - ✅ **Message Serialization**: Built-in support for custom serializers
 - ✅ **Visibility Timeout**: Configurable message processing windows
-- ✅ **Test Coverage**: Passes 22/26 tests from the official kiss_queue test suite
+- ✅ **Test Coverage**: From the official kiss_queue test suite
 
 ## Installation
 
@@ -147,13 +147,9 @@ dart test test/local_sqs_test.dart
 - ✅ Dead letter queue integration
 - ✅ Custom ID generation
 - ✅ Concurrent processing
-- ✅ Performance benchmarks
-- ✅ Memory pressure handling
 
 ### Known Limitations
-- ⚠️ Automatic message visibility timeout restoration
-- ⚠️ Advanced TTL/expiration features  
-- ⚠️ Some edge cases in DLQ behavior
+- ⚠️ Message retention timeout not working as expected on Localstack test environment 
 
 ## AWS Setup
 
