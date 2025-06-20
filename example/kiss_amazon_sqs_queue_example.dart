@@ -15,7 +15,7 @@ void main() async {
   );
 
   // Create the SQS queue factory
-  final sampleStringFactory = SqsQueueFactory<String>(sqs: sqs);
+  final sampleStringFactory = SqsQueueFactory<String, String>(sqs: sqs);
 
   try {
     // Create a queue with custom configuration
@@ -91,7 +91,7 @@ void main() async {
     }
 
     final orderSerializer = OrderSerializer();
-    final orderQueueFactory = SqsQueueFactory<Order>(
+    final orderQueueFactory = SqsQueueFactory<Order, Map<String, dynamic>>(
       sqs: sqs,
       serializer: orderSerializer,
     );

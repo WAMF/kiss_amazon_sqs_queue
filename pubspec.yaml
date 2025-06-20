@@ -1,14 +1,12 @@
 name: kiss_amazon_sqs_queue
 description: Amazon SQS implementation for the kiss_queue interface
-version: 0.0.1
+version: 0.0.2
 repository: https://github.com/WAMF/kiss_amazon_sqs_queue
 
 environment:
   sdk: ^3.8.0
 
-# Add regular dependencies here.
 dependencies:
-  # path: ^1.8.0
   kiss_queue: ^0.1.2
   aws_sqs_api: ^2.0.0
   uuid: ^4.0.0

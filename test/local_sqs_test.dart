@@ -28,7 +28,7 @@ class OrderSerializer
 }
 
 void main() {
-  runQueueTests<SqsQueue<Order>, Map<String, dynamic>?>(
+  runQueueTests<SqsQueue<Order, Map<String, dynamic>>, Map<String, dynamic>>(
     implementationName: 'SQS Queue (LocalStack)',
     testConfig: TestConfig(
       messageRetentionPeriod: Duration(seconds: 10),

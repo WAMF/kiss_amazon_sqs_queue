@@ -4,13 +4,13 @@ import 'package:aws_sqs_api/sqs-2012-11-05.dart';
 import 'package:kiss_queue/kiss_queue.dart';
 
 /// Amazon SQS implementation of the Queue interface
-class SqsQueue<T> implements Queue<T, Map<String, dynamic>> {
+class SqsQueue<T, S> implements Queue<T, S> {
   final SQS _sqs;
   final String _queueUrl;
   final QueueConfiguration _configuration;
-  final Queue<T, Map<String, dynamic>>? _deadLetterQueue;
+  final Queue<T, S>? _deadLetterQueue;
   final String Function()? _idGenerator;
-  final MessageSerializer<T, Map<String, dynamic>>? _serializer;
+  final MessageSerializer<T, S>? _serializer;
   final Map<String, QueueMessage<T>> _inFlightMessages = {};
   final Map<String, String> _receiptHandles = {};
   final Map<String, int> _messageReceiveCounts = {};
@@ -19,9 +19,9 @@ class SqsQueue<T> implements Queue<T, Map<String, dynamic>> {
     this._sqs,
     this._queueUrl,
     this._configuration, {
-    Queue<T, Map<String, dynamic>>? deadLetterQueue,
+    Queue<T, S>? deadLetterQueue,
     String Function()? idGenerator,
-    MessageSerializer<T, Map<String, dynamic>>? serializer,
+    MessageSerializer<T, S>? serializer,
   }) : _deadLetterQueue = deadLetterQueue,
        _idGenerator = idGenerator,
        _serializer = serializer;
@@ -30,19 +30,19 @@ class SqsQueue<T> implements Queue<T, Map<String, dynamic>> {
   QueueConfiguration get configuration => _configuration;
 
   @override
-  Queue<T, Map<String, dynamic>>? get deadLetterQueue => _deadLetterQueue;
+  Queue<T, S>? get deadLetterQueue => _deadLetterQueue;
 
   @override
   String Function()? get idGenerator => _idGenerator;
 
   @override
-  MessageSerializer<T, Map<String, dynamic>>? get serializer => _serializer;
+  MessageSerializer<T, S>? get serializer => _serializer;
 
   @override
   Future<void> enqueue(QueueMessage<T> message) async {
     try {
       // Serialize the payload to a Map format
-      Map<String, dynamic> serializedPayload;
+      S serializedPayload;
       if (_serializer != null) {
         serializedPayload = _serializer.serialize(message.payload);
       } else {
@@ -50,7 +50,7 @@ class SqsQueue<T> implements Queue<T, Map<String, dynamic>> {
         try {
           // Test if payload can be JSON encoded
           jsonEncode(message.payload);
-          serializedPayload = {'value': message.payload};
+          serializedPayload = message.payload as S;
         } catch (e) {
           throw ArgumentError(
             'Cannot serialize payload of type ${message.payload.runtimeType}. Please provide a MessageSerializer.',
@@ -61,8 +61,7 @@ class SqsQueue<T> implements Queue<T, Map<String, dynamic>> {
       // Create the complete message structure and serialize to JSON string for SQS
       final messageBody = jsonEncode({
         'id': message.id,
-        'payload':
-            serializedPayload, // This stays as original type (not double-encoded)
+        'payload': {'value': serializedPayload},
         'createdAt': message.createdAt.toIso8601String(),
         'processedAt': message.processedAt?.toIso8601String(),
         'acknowledgedAt': message.acknowledgedAt?.toIso8601String(),
@@ -121,14 +120,22 @@ class SqsQueue<T> implements Queue<T, Map<String, dynamic>> {
       T payload;
       if (_serializer != null) {
         // Use the serializer to deserialize the payload
-        final payloadMap =
-            messageData['payload'] as Map<String, dynamic>? ?? {};
-        payload = _serializer.deserialize(payloadMap);
+        final payloadData = messageData['payload'] as Map<String, dynamic>?;
+        if (payloadData == null) {
+          throw ArgumentError('No payload data found in message');
+        }
+        final payloadValue = payloadData['value'] as S?;
+        if (payloadValue == null) {
+          throw ArgumentError('Payload value is not of type $S or null');
+        }
+        payload = _serializer.deserialize(payloadValue);
       } else {
         // Extract the value from the wrapped format
-        final payloadMap =
-            messageData['payload'] as Map<String, dynamic>? ?? {};
-        final payloadValue = payloadMap['value'];
+        final payloadData = messageData['payload'] as Map<String, dynamic>?;
+        if (payloadData == null) {
+          throw ArgumentError('No payload data found in message');
+        }
+        final payloadValue = payloadData['value'] as S?;
         if (payloadValue is T) {
           payload = payloadValue;
         } else {
@@ -260,16 +267,16 @@ class SqsQueue<T> implements Queue<T, Map<String, dynamic>> {
 }
 
 /// Amazon SQS implementation of QueueFactory
-class SqsQueueFactory<T> implements QueueFactory<T, Map<String, dynamic>> {
+class SqsQueueFactory<T, S> implements QueueFactory<T, S> {
   final SQS _sqs;
-  final MessageSerializer<T, Map<String, dynamic>>? _serializer;
+  final MessageSerializer<T, S>? _serializer;
   final String Function()? _idGenerator;
-  final Map<String, Queue<T, Map<String, dynamic>>> _queueCache = {};
+  final Map<String, Queue<T, S>> _queueCache = {};
   final QueueConfiguration? _configuration;
 
   SqsQueueFactory({
     required SQS sqs,
-    MessageSerializer<T, Map<String, dynamic>>? serializer,
+    MessageSerializer<T, S>? serializer,
     String Function()? idGenerator,
     QueueConfiguration? configuration,
   }) : _sqs = sqs,
@@ -278,10 +285,10 @@ class SqsQueueFactory<T> implements QueueFactory<T, Map<String, dynamic>> {
        _configuration = configuration;
 
   @override
-  Future<Queue<T, Map<String, dynamic>>> createQueue(
+  Future<Queue<T, S>> createQueue(
     String queueName, {
     QueueConfiguration? configuration,
-    Queue<T, Map<String, dynamic>>? deadLetterQueue,
+    Queue<T, S>? deadLetterQueue,
   }) async {
     try {
       // Check cache first to early out
@@ -332,7 +339,7 @@ class SqsQueueFactory<T> implements QueueFactory<T, Map<String, dynamic>> {
       String queueUrl = createResponse.queueUrl!;
 
       // Create the queue object
-      final queue = SqsQueue<T>(
+      final queue = SqsQueue<T, S>(
         _sqs,
         queueUrl,
         config,
@@ -367,7 +374,7 @@ class SqsQueueFactory<T> implements QueueFactory<T, Map<String, dynamic>> {
   }
 
   @override
-  Future<Queue<T, Map<String, dynamic>>> getQueue(String queueName) async {
+  Future<Queue<T, S>> getQueue(String queueName) async {
     try {
       // Check cache first
       if (_queueCache.containsKey(queueName)) {
@@ -411,7 +418,7 @@ class SqsQueueFactory<T> implements QueueFactory<T, Map<String, dynamic>> {
             : null,
       );
 
-      final queue = SqsQueue<T>(
+      final queue = SqsQueue<T, S>(
         _sqs,
         queueUrl,
         config,
