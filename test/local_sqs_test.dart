@@ -2,7 +2,6 @@ import 'package:aws_sqs_api/sqs-2012-11-05.dart';
 import 'package:kiss_amazon_sqs_queue/kiss_amazon_sqs_queue.dart';
 import 'package:kiss_queue/kiss_queue.dart';
 import 'package:kiss_queue_tests/kiss_queue_tests.dart';
-import 'package:test/test.dart';
 
 // Order serializer that can properly serialize/deserialize Order objects
 class OrderSerializer
