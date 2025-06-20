@@ -1,6 +1,6 @@
 name: kiss_amazon_sqs_queue
 description: Amazon SQS implementation for the kiss_queue interface
-version: 1.0.0
+version: 0.0.1
 # repository: https://github.com/my_org/my_repo
 
 environment:
